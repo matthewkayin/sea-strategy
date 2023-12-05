@@ -149,6 +149,8 @@ void menu_handle_input(SDL_Event e) {
             if (menu_index == MENU_INDEX_BACK) {
                 if (!network_is_server) {
                     network_client_disconnect();
+                } else {
+                    network_server_disconnect();
                 }
                 menu_state = MENU_STATE_MAIN;
             }
@@ -158,6 +160,11 @@ void menu_handle_input(SDL_Event e) {
 
 void menu_update() {
     if (menu_state == MENU_STATE_LOBBY) {
+        if (!network_is_connected) {
+            menu_state = MENU_STATE_MAIN;
+            error_message = "The host disconnected";
+            return;
+        }
         if (network_is_server) {
             network_server_poll_events();
         } else {
@@ -176,7 +183,7 @@ void menu_render() {
         render_text("JOIN", join_button_rect.x, join_button_rect.y, font_hack16pt, menu_index == MENU_INDEX_JOIN ? COLOR_YELLOW : COLOR_WHITE);
     } else if (menu_state == MENU_STATE_LOBBY) {
         for (unsigned int i = 0; i < 4; i++) {
-            render_text(network_players[i], 64, 136 + (32 * i), font_hack16pt, COLOR_WHITE);
+            render_text(network_players[i].username, 64, 136 + (32 * i), font_hack16pt, COLOR_WHITE);
         }
 
         render_text("BACK", back_button_rect.x, back_button_rect.y, font_hack16pt, menu_index == MENU_INDEX_BACK ? COLOR_YELLOW : COLOR_WHITE);

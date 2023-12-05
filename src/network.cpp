@@ -94,22 +94,24 @@ struct Message {
 };
 
 bool network_is_server = false;
+bool network_is_connected = false;
 
 ENetAddress address;
 ENetHost* host;
 ENetPeer* client_peer;
 
 std::string username;
-std::string network_players[4];
+PlayerInfo network_players[4];
 uint8_t network_player_count = 0;
 uint8_t network_player_id;
 
 std::string network_server_init(std::string p_username) {
     for (unsigned int i = 0; i < 4; i++) {
-        network_players[i] = "";
+        network_players[i].username = "";
+        network_players[i].peer = NULL;
     }
 
-    network_players[0] = p_username.substr(0, 12);
+    network_players[0].username = p_username.substr(0, 12);
     network_player_count = 1;
     network_player_id = 0;
 
@@ -121,7 +123,46 @@ std::string network_server_init(std::string p_username) {
     }
 
     network_is_server = true;
+    network_is_connected = true;
     return "";
+}
+
+void network_server_disconnect() {
+    printf("hello\n");
+    for (unsigned int i = 1; i < 4; i++) {
+        if (network_players[i].username == "") {
+            continue;
+        }
+        enet_peer_disconnect(network_players[i].peer, 0);
+    }
+
+    ENetEvent event;
+    while (enet_host_service(host, &event, 0) > 3000) {
+        if (event.type == ENET_EVENT_TYPE_RECEIVE) {
+            enet_packet_destroy(event.packet);
+        } else if (event.type == ENET_EVENT_TYPE_CONNECT) {
+            enet_peer_disconnect(event.peer, 0);
+        } else if (event.type == ENET_EVENT_TYPE_DISCONNECT) {
+            uint8_t peer_id = *((uint8_t*)event.peer->data);
+            network_players[peer_id].username = "";
+            network_players[peer_id].peer = NULL;
+        }
+    }
+
+    for (unsigned int i = 1; i < 4; i++) {
+        if (network_players[i].username != "") {
+            enet_peer_reset(network_players[i].peer);
+            network_players[i].username = "";
+            network_players[i].peer = NULL;
+        }
+    }
+
+    enet_host_destroy(host);
+
+    printf("hi\n");
+    network_players[0].username = "";
+    network_is_server = false;
+    network_is_connected = false;
 }
 
 void network_server_poll_events() {
@@ -129,9 +170,10 @@ void network_server_poll_events() {
     while (enet_host_service(host, &event, 0) > 0) {
         if (event.type == ENET_EVENT_TYPE_CONNECT) {
             printf("A new client connnected %x:%u.\n", event.peer->address.host, event.peer->address.port);
-            for (unsigned int i = 0; i < 4; i++) {
-                if (network_players[i] == "") {
+            for (unsigned int i = 1; i < 4; i++) {
+                if (network_players[i].username == "") {
                     event.peer->data = new uint8_t(i);
+                    network_players[i].peer = event.peer;
                     break;
                 }
             }
@@ -148,12 +190,12 @@ void network_server_poll_events() {
             Message message((char*)event.packet->data, event.packet->dataLength);
 
             if (message.type == MESSAGE_TYPE_SET_USERNAME) {
-                network_players[*((uint8_t*)event.peer->data)] = message.set_username.username;
+                network_players[*((uint8_t*)event.peer->data)].username = message.set_username.username;
 
                 MessageUpdateRoster roster_message; 
                 roster_message.player_count = network_player_count;
                 for (unsigned int i = 0; i < 4; i++) {
-                    strcpy(roster_message.usernames[i], network_players[i].c_str());
+                    strcpy(roster_message.usernames[i], network_players[i].username.c_str());
                 }
                 std::string message_string = roster_message.serialize();
                 ENetPacket* packet = enet_packet_create(message_string.c_str(), message_string.length() + 1, ENET_PACKET_FLAG_RELIABLE);
@@ -164,14 +206,15 @@ void network_server_poll_events() {
             enet_packet_destroy(event.packet);
         } else if (event.type == ENET_EVENT_TYPE_DISCONNECT) {
             printf("Client disconnected\n");
-            network_players[*((uint8_t*)event.peer->data)] = "";
+            network_players[*((uint8_t*)event.peer->data)].username = "";
+            network_players[*((uint8_t*)event.peer->data)].peer = NULL;
             delete (uint8_t*)event.peer->data;
             event.peer->data = NULL;
 
             MessageUpdateRoster roster_message; 
             roster_message.player_count = network_player_count;
             for (unsigned int i = 0; i < 4; i++) {
-                strcpy(roster_message.usernames[i], network_players[i].c_str());
+                strcpy(roster_message.usernames[i], network_players[i].username.c_str());
             }
             std::string message_string = roster_message.serialize();
             ENetPacket* packet = enet_packet_create(message_string.c_str(), message_string.length() + 1, ENET_PACKET_FLAG_RELIABLE);
@@ -182,6 +225,11 @@ void network_server_poll_events() {
 }
 
 std::string network_client_init(std::string p_username) {
+    for (unsigned int i = 0; i < 4; i++) {
+        network_players[i].username = "";
+        network_players[i].peer = NULL;
+    }
+
     username = p_username;
 
     host = enet_host_create(NULL, 1, 2, 0, 0);
@@ -203,6 +251,8 @@ std::string network_client_init(std::string p_username) {
     }
 
     enet_host_flush(host);
+    network_is_connected = true;
+    network_is_server = false;
     return "";
 }
 
@@ -220,17 +270,24 @@ void network_client_disconnect() {
     }
 
     enet_peer_reset(client_peer);
+    enet_host_destroy(host);
+
+    network_is_connected = false;
 }
 
 void network_client_poll_events() {
     ENetEvent event;
     while (enet_host_service(host, &event, 0) > 0) {
-        if (event.type == ENET_EVENT_TYPE_RECEIVE) {
+        if (event.type == ENET_EVENT_TYPE_DISCONNECT) {
+            enet_peer_reset(client_peer);
+            enet_host_destroy(host);
+            network_is_connected = false;
+        } else if (event.type == ENET_EVENT_TYPE_RECEIVE) {
             Message message((char*)event.packet->data, event.packet->dataLength);
 
             if (message.type == MESSAGE_TYPE_ASSIGN_ID) {
                 network_player_id = message.assign_id.id;
-                network_players[network_player_id] = username;
+                network_players[network_player_id].username = username;
 
                 MessageSetUsername message;
                 strcpy(message.username, username.c_str());
@@ -240,10 +297,8 @@ void network_client_poll_events() {
                 enet_host_flush(host);
             } else if (message.type == MESSAGE_TYPE_UPDATE_ROSTER) {
                 network_player_count = message.update_roster.player_count;
-                printf("player count %u\n", network_player_count);
                 for (unsigned int i = 0; i < 4; i++) {
-                    network_players[i] = std::string(message.update_roster.usernames[i]);
-                    printf("%s\n", network_players[i].c_str());
+                    network_players[i].username = std::string(message.update_roster.usernames[i]);
                 }
             }
 
