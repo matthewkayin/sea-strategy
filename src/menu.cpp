@@ -55,6 +55,8 @@ MenuIndex menu_index;
 MenuIndex text_input_state;
 std::string error_message;
 
+bool menu_is_running = false;
+
 void menu_init() {
     host_button_rect = render_get_text_rect("HOST", RENDER_TEXT_CENTERED, 264, font_hack16pt);
     join_button_rect = render_get_text_rect("JOIN", RENDER_TEXT_CENTERED, 296, font_hack16pt);
@@ -70,9 +72,15 @@ void menu_init() {
     menu_state = MENU_STATE_MAIN;
 
     error_message = "";
+
+    menu_is_running = true;
 }
 
 void menu_handle_input(SDL_Event e) {
+    if (!menu_is_running) {
+        return;
+    }
+
     if (menu_state == MENU_STATE_MAIN) {
         if (e.type == SDL_MOUSEMOTION) {
             SDL_Point mouse_position = (SDL_Point) { .x = e.motion.x, .y = e.motion.y };
@@ -159,6 +167,10 @@ void menu_handle_input(SDL_Event e) {
 }
 
 void menu_update() {
+    if (!menu_is_running) {
+        return;
+    }
+
     if (menu_state == MENU_STATE_LOBBY) {
         if (!network_is_connected) {
             menu_state = MENU_STATE_MAIN;
@@ -174,6 +186,10 @@ void menu_update() {
 }
 
 void menu_render() {
+    if (!menu_is_running) {
+        return;
+    }
+
     render_text("BLOCKADE", RENDER_TEXT_CENTERED, 84, font_hack24pt, COLOR_WHITE);
     if (menu_state == MENU_STATE_MAIN) {
         render_text(error_message, RENDER_TEXT_CENTERED, 136, font_hack16pt, COLOR_WHITE);

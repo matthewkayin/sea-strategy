@@ -4,6 +4,7 @@
 
 #include "render.hpp"
 #include "menu.hpp"
+#include "match.hpp"
 #include "network.hpp"
 
 #include <stdio.h>
@@ -25,6 +26,13 @@ unsigned int fps = 0;
 SDL_Window* window;
 SDL_Renderer* renderer;
 
+enum GameState {
+    GAME_STATE_MENU = 0,
+    GAME_STATE_MATCH = 1
+};
+
+GameState game_state;
+
 bool game_init();
 void game_quit();
 
@@ -34,6 +42,7 @@ int main() {
     }
 
     menu_init();
+    game_state = GAME_STATE_MATCH;
 
     bool running = true;
     last_time = SDL_GetTicks();
@@ -59,17 +68,36 @@ int main() {
         while (SDL_PollEvent(&e) != 0) {
             if (e.type == SDL_QUIT) {
                 running = false;
-            } else {
+            } else if (game_state == GAME_STATE_MENU) {
                 menu_handle_input(e);
+            } else if (game_state == GAME_STATE_MATCH) {
+                match_handle_input(e);
             }
         }
 
-        menu_update();
+        if (game_state == GAME_STATE_MENU) {
+            menu_update();
+            if (!menu_is_running) {
+                match_init();
+                game_state = GAME_STATE_MATCH;
+            }
+        } else if (game_state == GAME_STATE_MATCH) {
+            match_update(delta);
+            if (!match_is_running) {
+                menu_init();
+                game_state = GAME_STATE_MENU;
+            }
+        }
 
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
 
-        menu_render();
+        if (game_state == GAME_STATE_MENU) {
+            menu_render();
+        } else if (game_state == GAME_STATE_MATCH) {
+            match_render();
+        }
+
         render_text("FPS: " + std::to_string(fps), 0, 0, font_hack10pt, COLOR_WHITE);
 
         SDL_RenderPresent(renderer);
