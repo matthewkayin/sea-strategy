@@ -84,6 +84,7 @@ int main() {
         } else if (game_state == GAME_STATE_MATCH) {
             match_update(delta);
             if (!match_is_running) {
+                match_quit();
                 menu_init();
                 game_state = GAME_STATE_MENU;
             }
@@ -142,6 +143,10 @@ bool game_init() {
 }
 
 void game_quit() {
+    if (game_state == GAME_STATE_MATCH) {
+        match_quit();
+    }
+
     enet_deinitialize();
     render_free_fonts();
 

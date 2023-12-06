@@ -1,11 +1,17 @@
 #include "match.hpp"
 
 #include "network.hpp"
+#include "map.hpp"
 
 bool match_is_running;
 
 void match_init() {
     match_is_running = true;
+    map_init("./map/map.tmx");
+}
+
+void match_quit() {
+    map_free();
 }
 
 void match_handle_input(SDL_Event e) {
@@ -35,4 +41,6 @@ void match_render() {
     if (!match_is_running) {
         return;
     }
+
+    map_render();
 }

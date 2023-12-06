@@ -2,6 +2,8 @@
 
 #include <stdio.h>
 
+#include <SDL2/SDL_image.h>
+
 const int RENDER_TEXT_CENTERED = -1;
 
 const SDL_Color COLOR_WHITE {
@@ -21,6 +23,10 @@ const SDL_Color COLOR_YELLOW {
 TTF_Font* font_hack10pt;
 TTF_Font* font_hack16pt;
 TTF_Font* font_hack24pt;
+
+SDL_Texture* tileset_texture;
+int tileset_tile_width;
+int tileset_tile_height;
 
 bool render_init_fonts() {
     if (TTF_Init() == -1) {
@@ -93,9 +99,8 @@ SDL_Rect render_get_text_rect(std::string text, int x, int y, TTF_Font* font) {
         return (SDL_Rect) { .x = 0, .y = 0, .w = 0, .h = 0 };
     }
 
-    SDL_Rect source_rect = (SDL_Rect) { .x = 0, .y = 0, .w = text_surface->w, .h = text_surface->h };
     SDL_Rect dest_rect = (SDL_Rect) { .x = x, .y = y, .w = text_surface->w, .h = text_surface->h };
-    if (x == RENDER_TEXT_CENTERED) {
+    if (x == RENDER_TEXT_CENTERED) {    
         dest_rect.x = (SCREEN_WIDTH / 2) - (text_surface->w / 2);
     }
     if (y == RENDER_TEXT_CENTERED) {
@@ -105,4 +110,41 @@ SDL_Rect render_get_text_rect(std::string text, int x, int y, TTF_Font* font) {
     SDL_FreeSurface(text_surface);
 
     return dest_rect;
+}
+
+bool render_tileset_load(std::string path) {
+    render_tileset_free();
+
+    SDL_Surface* surface = IMG_Load(path.c_str());
+    if (surface == NULL) {
+        printf("Unable to load tileset at %s. SDL Error: %s\n", path.c_str(), IMG_GetError());
+        return false;
+    }
+
+    tileset_texture = SDL_CreateTextureFromSurface(renderer, surface);
+    if (tileset_texture == NULL) {
+        printf("Unable to create texture from image. SDL Error: %s\n", SDL_GetError());
+        return false;
+    }
+
+    tileset_tile_width = surface->w / 32;
+    tileset_tile_height = surface->h / 32;
+
+    SDL_FreeSurface(surface);
+
+    return true;
+}
+
+void render_tileset_free() {
+    if (tileset_texture != NULL) {
+        SDL_DestroyTexture(tileset_texture);
+        tileset_texture = NULL;
+    }
+}
+
+void render_tileset_tile(int tile_index, ivec2 position) {
+    SDL_Rect src_rect = (SDL_Rect) { .x = (tile_index % tileset_tile_width) * 32, .y = (int)((float)tile_index / (float)tileset_tile_width) * 32, .w = 32, .h = 32 };
+    SDL_Rect dst_rect = (SDL_Rect) { .x = position.x * 32, .y = position.y * 32, .w = 32, .h = 32 };
+
+    SDL_RenderCopy(renderer, tileset_texture, &src_rect, &dst_rect);
 }
