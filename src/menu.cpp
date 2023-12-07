@@ -161,6 +161,8 @@ void menu_handle_input(SDL_Event e) {
                     network_server_disconnect();
                 }
                 menu_state = MENU_STATE_MAIN;
+            } else if (menu_index == MENU_INDEX_START && network_is_server) {
+                menu_is_running = false;
             }
         }
     }

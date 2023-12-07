@@ -24,7 +24,7 @@ TTF_Font* font_hack10pt;
 TTF_Font* font_hack16pt;
 TTF_Font* font_hack24pt;
 
-SDL_Texture* tileset_texture;
+SDL_Texture* tileset_texture = NULL;
 int tileset_tile_width;
 int tileset_tile_height;
 
@@ -113,7 +113,7 @@ SDL_Rect render_get_text_rect(std::string text, int x, int y, TTF_Font* font) {
 }
 
 bool render_tileset_load(std::string path) {
-    render_tileset_free();
+    // render_tileset_free();
 
     SDL_Surface* surface = IMG_Load(path.c_str());
     if (surface == NULL) {
@@ -144,7 +144,7 @@ void render_tileset_free() {
 
 void render_tileset_tile(int tile_index, ivec2 position) {
     SDL_Rect src_rect = (SDL_Rect) { .x = (tile_index % tileset_tile_width) * 32, .y = (int)((float)tile_index / (float)tileset_tile_width) * 32, .w = 32, .h = 32 };
-    SDL_Rect dst_rect = (SDL_Rect) { .x = position.x * 32, .y = position.y * 32, .w = 32, .h = 32 };
+    SDL_Rect dst_rect = (SDL_Rect) { .x = position.x, .y = position.y, .w = 32, .h = 32 };
 
     SDL_RenderCopy(renderer, tileset_texture, &src_rect, &dst_rect);
 }

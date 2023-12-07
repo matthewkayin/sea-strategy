@@ -42,7 +42,7 @@ int main() {
     }
 
     menu_init();
-    game_state = GAME_STATE_MATCH;
+    game_state = GAME_STATE_MENU;
 
     bool running = true;
     last_time = SDL_GetTicks();
@@ -84,6 +84,7 @@ int main() {
         } else if (game_state == GAME_STATE_MATCH) {
             match_update(delta);
             if (!match_is_running) {
+                printf("not running\n");
                 match_quit();
                 menu_init();
                 game_state = GAME_STATE_MENU;

@@ -20,23 +20,23 @@ struct XMLTag {
     std::map<std::string, std::string> data;
     XMLTag(std::string line) {
         while (line[0] == ' ' || line[0] == '<' || line[0] == '?') {
-            line.erase(0);
+            line.erase(0, 1);
         }
-        while (line[line.length() - 1] != '"') {
+        while (line[line.length() - 1] == '>' || line[line.length() - 1] == '/') {
             line.pop_back();
         }
-        
+
         size_t space_index = line.find(' ');
         name = line.substr(0, space_index);
-        line = line.substr(space_index + 1);
+        line = space_index == std::string::npos ? "" : line.substr(space_index + 1);
 
         while (line != "") {
             size_t equals_index = line.find('=');
             std::string key = line.substr(0, line.find('='));
-            line = line.substr(equals_index + 1);
+            line = line.substr(equals_index + 2);
             size_t quote_index = line.find('"');
             std::string value = line.substr(0, quote_index);
-            line = line.substr(quote_index + 2);
+            line = quote_index + 2 > line.length() - 1 ? "" : line.substr(quote_index + 2);
 
             data[key] = value;
         }
@@ -49,7 +49,6 @@ bool map_init(std::string path) {
     std::string line;
     std::ifstream map_file(path);
     if (!map_file.is_open()) {
-        printf("Unable to open map %s\n", path.c_str());
         return false;
     }
 
@@ -104,10 +103,13 @@ bool map_init(std::string path) {
                 layer_pos.x++;
             }
             layer_pos.y++;
+            layer_pos.x = 0;
         }
     }
 
     map_file.close();
+
+    render_tileset_load("./res/tiles.png");
 
     map_camera_offset = ivec2(0, 0);
 
