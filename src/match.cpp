@@ -1,22 +1,33 @@
 #include "match.hpp"
 
+#include "render.hpp"
 #include "network.hpp"
 #include "map.hpp"
 
+#include <algorithm>
+
+const int SCREEN_DRAG_MARGIN = 20;
+const float SCREEN_DRAG_SPEED = 100.0;
+
 bool match_is_running;
 bool match_is_started;
+
+vec2 screen_drag_direction;
 
 void match_init() {
     match_is_running = true;
     match_is_started = false;
     map_init("./map/map.tmx");
-    
+
     if (!network_is_server) {
         network_message_out_queue.push((Message) {
             .type = MESSAGE_TYPE_LOAD_MATCH
         });
     } else {
         network_players[0].has_loaded = true;
+        if (network_player_count == 1) {
+            match_is_started = true;
+        }
     }
 }
 
@@ -25,8 +36,22 @@ void match_quit() {
 }
 
 void match_handle_input(SDL_Event e) {
-    if (!match_is_running) {
+    if (!match_is_started) {
         return;
+    }
+
+    if (e.type == SDL_MOUSEMOTION) {
+        screen_drag_direction = vec2(0, 0);
+        if (e.motion.x < SCREEN_DRAG_MARGIN) {
+            screen_drag_direction.x = -1.0f;
+        } else if (e.motion.x > SCREEN_WIDTH - SCREEN_DRAG_MARGIN) {
+            screen_drag_direction.x = 1.0f;
+        }
+        if (e.motion.y < SCREEN_DRAG_MARGIN) {
+            screen_drag_direction.y = -1.0f;
+        } else if (e.motion.y > SCREEN_HEIGHT - SCREEN_DRAG_MARGIN) {
+            screen_drag_direction.y = 1.0f;
+        }
     }
 }
 
@@ -76,7 +101,8 @@ void match_update(float delta) {
         return;
     }
 
-    printf("started!\n");
+    map_camera_offset += screen_drag_direction * SCREEN_DRAG_SPEED * delta;
+    map_camera_offset = map_camera_offset.clamp(vec2(0, 0), map_camera_limit);
 }
 
 void match_render() {

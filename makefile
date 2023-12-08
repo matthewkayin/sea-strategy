@@ -1,5 +1,5 @@
 C = g++
-CFLAGS = -Wall -std=c++11 -static-libstdc++
+CFLAGS = -Wall -std=c++17 -static-libstdc++
 DBGFLAGS = -g
 IFLAGS = -Iinclude
 LFLAGS = -lSDL2 -lSDL2_image -lSDL2_ttf -lenet -lws2_32 -lwinmm

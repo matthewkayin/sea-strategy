@@ -13,7 +13,8 @@ unsigned int map_width;
 unsigned int map_height;
 unsigned int* map_tile;
 ivec2 map_player_spawns[4];
-ivec2 map_camera_offset;
+vec2 map_camera_offset;
+vec2 map_camera_limit;
 
 struct XMLTag {
     std::string name;
@@ -71,6 +72,7 @@ bool map_init(std::string path) {
                 in_tile_layer = true;
                 map_width = stoul(xml_tag.data["width"]);
                 map_height = stoul(xml_tag.data["height"]);
+                map_camera_limit = vec2((map_width * 32.0f) - SCREEN_WIDTH, (map_height * 32.0f) - SCREEN_HEIGHT);
                 map_tile = new unsigned int[map_width * map_height];
                 layer_pos = ivec2(0, 0);
             } else if (xml_tag.name == "layer" && xml_tag.data["name"] == "tile") {
@@ -111,7 +113,7 @@ bool map_init(std::string path) {
 
     render_tileset_load("./res/tiles.png");
 
-    map_camera_offset = ivec2(0, 0);
+    map_camera_offset = vec2(0, 0);
 
     return true;
 }
@@ -135,10 +137,11 @@ void map_set_tile_at(ivec2 position, unsigned int value) {
 
 void map_render() {
     ivec2 top_left_cell = ivec2((int)(map_camera_offset.x / 32.0), (int)(map_camera_offset.y / 32.0));
+    ivec2 map_camera_offset_as_ivec2 = map_camera_offset.to_ivec2();
     for (unsigned int x = top_left_cell.x; x < top_left_cell.x + SCREEN_TILE_WIDTH; x++) {
         for (unsigned int y = top_left_cell.y; y < top_left_cell.y + SCREEN_TILE_HEIGHT; y++) {
             ivec2 tile_cell = ivec2(x, y);
-            ivec2 render_position = (tile_cell * 32) - map_camera_offset;
+            ivec2 render_position = (tile_cell * 32) - map_camera_offset_as_ivec2;
             render_tileset_tile(map_tile_at(tile_cell), render_position);
         }
     }

@@ -8,7 +8,8 @@ extern unsigned int map_width;
 extern unsigned int map_height;
 extern unsigned int* map_tile;
 extern ivec2 map_player_spawns[4];
-extern ivec2 map_camera_offset;
+extern vec2 map_camera_offset;
+extern vec2 map_camera_limit;
 
 bool map_init(std::string path);
 void map_free();

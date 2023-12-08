@@ -68,10 +68,18 @@ int main() {
         while (SDL_PollEvent(&e) != 0) {
             if (e.type == SDL_QUIT) {
                 running = false;
-            } else if (game_state == GAME_STATE_MENU) {
-                menu_handle_input(e);
-            } else if (game_state == GAME_STATE_MATCH) {
-                match_handle_input(e);
+            } else if (SDL_GetWindowGrab(window) == SDL_FALSE) {
+                if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
+                    SDL_SetWindowGrab(window, SDL_TRUE);
+                }
+            } else {
+                if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) {
+                    SDL_SetWindowGrab(window, SDL_FALSE);
+                } else if (game_state == GAME_STATE_MENU) {
+                    menu_handle_input(e);
+                } else if (game_state == GAME_STATE_MATCH) {
+                    match_handle_input(e);
+                }
             }
         }
 
@@ -84,7 +92,6 @@ int main() {
         } else if (game_state == GAME_STATE_MATCH) {
             match_update(delta);
             if (!match_is_running) {
-                printf("not running\n");
                 match_quit();
                 menu_init();
                 game_state = GAME_STATE_MENU;
