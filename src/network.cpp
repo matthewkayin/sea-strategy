@@ -19,6 +19,9 @@ PlayerInfo network_players[4];
 uint8_t network_player_count = 0;
 uint8_t network_player_id;
 
+std::queue<Message> network_message_out_queue;
+std::queue<Message> network_message_in_queue;
+
 std::string network_server_init(std::string p_username) {
     for (unsigned int i = 0; i < 4; i++) {
         network_players[i].username = "";
@@ -90,33 +93,31 @@ void network_server_poll_events() {
             }
             network_player_count++;
 
-            Message message = (Message) {
+            network_message_out_queue.push((Message) {
+                .target = *((uint8_t*)event.peer->data),
                 .type = MESSAGE_TYPE_ASSIGN_ID,
                 .assign_id = {
                     .id = *((uint8_t*)event.peer->data)
                 }
-            };
-            std::string message_string = message.serialize();
-            ENetPacket* packet = enet_packet_create(message_string.c_str(), message_string.length() + 1, ENET_PACKET_FLAG_RELIABLE);
-            enet_peer_send(event.peer, 0, packet);
-            enet_host_flush(host);
+            });
         } else if (event.type == ENET_EVENT_TYPE_RECEIVE) {
             Message message;
             message.deserialize((char*)event.packet->data, event.packet->dataLength);
+            message.sender = *((uint8_t*)event.peer->data); 
 
             if (message.type == MESSAGE_TYPE_SET_USERNAME) {
-                network_players[*((uint8_t*)event.peer->data)].username = message.set_username.username;
+                network_players[message.sender].username = message.set_username.username;
 
                 Message roster_message; 
+                roster_message.target = MESSAGE_TARGET_BROADCAST;
                 roster_message.type = MESSAGE_TYPE_UPDATE_ROSTER;
                 roster_message.update_roster.player_count = network_player_count;
                 for (unsigned int i = 0; i < 4; i++) {
                     strcpy(roster_message.update_roster.usernames[i], network_players[i].username.c_str());
                 }
-                std::string message_string = roster_message.serialize();
-                ENetPacket* packet = enet_packet_create(message_string.c_str(), message_string.length() + 1, ENET_PACKET_FLAG_RELIABLE);
-                enet_host_broadcast(host, 0, packet);
-                enet_host_flush(host);
+                network_message_out_queue.push(roster_message);
+            } else {
+                network_message_in_queue.push(message);
             }
 
             enet_packet_destroy(event.packet);
@@ -127,17 +128,17 @@ void network_server_poll_events() {
             event.peer->data = NULL;
 
             Message roster_message;
+            roster_message.target = MESSAGE_TARGET_BROADCAST;
             roster_message.type = MESSAGE_TYPE_UPDATE_ROSTER;
             roster_message.update_roster.player_count = network_player_count;
             for (unsigned int i = 0; i < 4; i++) {
                 strcpy(roster_message.update_roster.usernames[i], network_players[i].username.c_str());
             }
-            std::string message_string = roster_message.serialize();
-            ENetPacket* packet = enet_packet_create(message_string.c_str(), message_string.length() + 1, ENET_PACKET_FLAG_RELIABLE);
-            enet_host_broadcast(host, 0, packet);
-            enet_host_flush(host);
+            network_message_out_queue.push(roster_message);
         }
     }
+
+    network_flush_out_queue();
 }
 
 std::string network_client_init(std::string p_username) {
@@ -200,6 +201,7 @@ void network_client_poll_events() {
         } else if (event.type == ENET_EVENT_TYPE_RECEIVE) {
             Message message;
             message.deserialize((char*)event.packet->data, event.packet->dataLength);
+            message.sender = 0;
 
             if (message.type == MESSAGE_TYPE_ASSIGN_ID) {
                 network_player_id = message.assign_id.id;
@@ -208,18 +210,38 @@ void network_client_poll_events() {
                 Message username_message;
                 username_message.type = MESSAGE_TYPE_SET_USERNAME;
                 strcpy(username_message.set_username.username, username.c_str());
-                std::string message_serialized = username_message.serialize();
-                ENetPacket* packet = enet_packet_create(message_serialized.c_str(), message_serialized.length() + 1, ENET_PACKET_FLAG_RELIABLE);
-                enet_peer_send(client_peer, 0, packet);
-                enet_host_flush(host);
+                network_message_out_queue.push(username_message);
             } else if (message.type == MESSAGE_TYPE_UPDATE_ROSTER) {
                 network_player_count = message.update_roster.player_count;
                 for (unsigned int i = 0; i < 4; i++) {
                     network_players[i].username = std::string(message.update_roster.usernames[i]);
                 }
+            } else {
+                network_message_in_queue.push(message);
             }
 
             enet_packet_destroy(event.packet);
         }
     }
+
+    network_flush_out_queue();
+}
+
+void network_flush_out_queue() {
+    while (!network_message_out_queue.empty()) {
+        Message message = network_message_out_queue.front();
+        network_message_out_queue.pop();
+
+        std::string message_string = message.serialize();
+        ENetPacket* packet = enet_packet_create(message_string.c_str(), message_string.length() + 1, ENET_PACKET_FLAG_RELIABLE);
+        if (!network_is_server) {
+            enet_peer_send(client_peer, 0, packet);
+        } else if (message.target == MESSAGE_TARGET_BROADCAST) {
+            enet_host_broadcast(host, 0, packet);
+        } else {
+           enet_peer_send(network_players[(unsigned int)message.target].peer, 0, packet);
+        }
+    }
+
+    enet_host_flush(host);
 }

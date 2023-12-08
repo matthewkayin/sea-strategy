@@ -2,6 +2,7 @@
 
 #include "render.hpp"
 #include "network.hpp"
+#include "message.hpp"
 
 #include <string>
 
@@ -162,6 +163,16 @@ void menu_handle_input(SDL_Event e) {
                 }
                 menu_state = MENU_STATE_MAIN;
             } else if (menu_index == MENU_INDEX_START && network_is_server) {
+                for (unsigned int i = 0; i < 4; i++) {
+                    if (network_players[i].username == "") {
+                        continue;
+                    }
+                    network_players[i].has_loaded = false;
+                    network_message_out_queue.push((Message) {
+                        .target = MESSAGE_TARGET_BROADCAST,
+                        .type = MESSAGE_TYPE_LOAD_MATCH
+                    });
+                }
                 menu_is_running = false;
             }
         }
@@ -183,6 +194,15 @@ void menu_update() {
             network_server_poll_events();
         } else {
             network_client_poll_events();
+        }
+
+        while (!network_message_in_queue.empty()) {
+            Message message = network_message_in_queue.front();
+            network_message_in_queue.pop();
+
+            if (!network_is_server && message.type == MESSAGE_TYPE_LOAD_MATCH) {
+                menu_is_running = false;
+            }
         }
     }
 }
