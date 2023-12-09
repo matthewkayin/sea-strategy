@@ -75,7 +75,7 @@ bool map_init(std::string path) {
                 map_camera_limit = vec2((map_width * 32.0f) - SCREEN_WIDTH, (map_height * 32.0f) - SCREEN_HEIGHT);
                 map_tile = new unsigned int[map_width * map_height];
                 layer_pos = ivec2(0, 0);
-            } else if (xml_tag.name == "layer" && xml_tag.data["name"] == "tile") {
+            } else if (xml_tag.name == "layer" && xml_tag.data["name"] == "spawns") {
                 in_spawn_layer = true;
                 layer_pos = ivec2(0, 0);
             } else if (xml_tag.name == "/layer") {
@@ -99,7 +99,9 @@ bool map_init(std::string path) {
                     map_set_tile_at(layer_pos, next_value - tile_offset);
                 } else if (in_spawn_layer) {
                     unsigned int player_index = next_value - spawn_offset;
-                    map_player_spawns[player_index] = layer_pos;
+                    if (player_index >= 0 && player_index < 4) {
+                        map_player_spawns[player_index] = layer_pos;
+                    }
                 }
 
                 layer_pos.x++;

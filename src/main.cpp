@@ -141,6 +141,10 @@ bool game_init() {
         return false;
     }
 
+    if (!render_textures_init()) {
+        return false;
+    }
+
     if (enet_initialize() != 0) {
         printf("Unable to initialize enet\n");
         return false;
@@ -157,6 +161,7 @@ void game_quit() {
 
     enet_deinitialize();
     render_free_fonts();
+    render_textures_free();
 
     // quit SDL
     SDL_DestroyRenderer(renderer);

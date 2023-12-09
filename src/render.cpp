@@ -28,6 +28,10 @@ SDL_Texture* tileset_texture = NULL;
 int tileset_tile_width;
 int tileset_tile_height;
 
+SDL_Texture* textures[TEXTURE_COUNT];
+int texture_width[TEXTURE_COUNT];
+int texture_height[TEXTURE_COUNT];
+
 bool render_init_fonts() {
     if (TTF_Init() == -1) {
         printf("Error initializing SDL_ttf: %s\n", TTF_GetError());
@@ -147,4 +151,45 @@ void render_tileset_tile(int tile_index, ivec2 position) {
     SDL_Rect dst_rect = (SDL_Rect) { .x = position.x, .y = position.y, .w = 32, .h = 32 };
 
     SDL_RenderCopy(renderer, tileset_texture, &src_rect, &dst_rect);
+}
+
+bool render_textures_init() {
+    std::string texture_paths[TEXTURE_COUNT];
+    texture_paths[TEXTURE_SLOOP0] = "./res/sloop0.png";
+    texture_paths[TEXTURE_SLOOP1] = "./res/sloop1.png";
+    texture_paths[TEXTURE_SLOOP2] = "./res/sloop2.png";
+    texture_paths[TEXTURE_SLOOP3] = "./res/sloop3.png";
+
+    for (unsigned int i = 0; i < TEXTURE_COUNT; i++) {
+        SDL_Surface* surface = IMG_Load(texture_paths[i].c_str());
+        if (surface == NULL) {
+            printf("Unable to load texture at %s. SDL Error: %s\n", texture_paths[i].c_str(), IMG_GetError());
+            return false;
+        }
+
+        textures[i] = SDL_CreateTextureFromSurface(renderer, surface);
+        if (textures[i] == NULL) {
+            printf("Unable to create texture from image. SDL Error: %s\n", SDL_GetError());
+            return false;
+        }
+
+        texture_width[i] = surface->w;
+        texture_height[i] = surface->h;
+
+        SDL_FreeSurface(surface);
+    }
+
+    return true;
+}
+
+void render_textures_free() {
+    for (unsigned int i = 0; i < TEXTURE_COUNT; i++) {
+        SDL_DestroyTexture(textures[i]);
+    }
+}
+
+void render_textures_render(Texture texture, ivec2 position) {
+    SDL_Rect src_rect = (SDL_Rect) { .x = 0, .y = 0, .w = texture_width[texture], .h = texture_height[texture] };
+    SDL_Rect dest_rect = (SDL_Rect) { .x = position.x, .y = position.y, .w = texture_width[texture], .h = texture_height[texture] };
+    SDL_RenderCopy(renderer, textures[texture], &src_rect, &dest_rect);
 }

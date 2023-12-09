@@ -35,6 +35,10 @@ struct vec2 {
         this->x = x;
         this->y = y;
     }
+    vec2(const ivec2& other) {
+        x = (float)other.x;
+        y = (float)other.y;
+    }
     ivec2 to_ivec2() const {
         return ivec2((int)x, (int)y);
     }
